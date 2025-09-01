@@ -386,20 +386,7 @@ Resources:
       TargetTrackingConfiguration:
         PredefinedMetricSpecification:
           PredefinedMetricType: ASGAverageCPUUtilization
-        TargetValue: 50.0
-
-  WebServerScaleInPolicy:
-    Type: AWS::AutoScaling::ScalingPolicy
-    Properties:
-      AutoScalingGroupName: !Ref WebServerASG
-      PolicyType: StepScaling
-      AdjustmentType: ChangeInCapacity
-      StepAdjustments:
-        - MetricIntervalUpperBound: 20.0
-          ScalingAdjustment: -1
-        - MetricIntervalLowerBound: 20.0
-          ScalingAdjustment: -2
-      Cooldown: 60
+        TargetValue: 30.0
 
 
   #------------------------------------------------------------------#
