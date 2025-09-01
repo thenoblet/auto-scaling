@@ -283,7 +283,7 @@ Resources:
             AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 
             # Create the main web page with a stress test button
-            cat <<EOF > /var/www/html/index.html
+            cat <<'EOF' > /var/www/html/index.html
             <!DOCTYPE html>
             <html lang="en">
             <head>
@@ -301,9 +301,9 @@ Resources:
             <body>
                 <div class="container">
                     <h1>Hello from the Web Server!</h1>
-                    <p>Instance ID: <strong>${INSTANCE_ID}</strong></p>
-                    <p>Private IP: <strong>${PRIVATE_IP}</strong></p>
-                    <p>Availability Zone: <strong>${AVAILABILITY_ZONE}</strong></p>
+                    <p>Instance ID: <strong>$INSTANCE_ID</strong></p>
+                    <p>Private IP: <strong>$PRIVATE_IP</strong></p>
+                    <p>Availability Zone: <strong>$AVAILABILITY_ZONE</strong></p>
                     <hr>
                     <h3>Click to trigger a scale-out event:</h3>
                     <button onclick="stressCpu()">Start CPU Stress Test</button>
@@ -338,13 +338,13 @@ Resources:
             echo "ScriptAlias /cgi-bin/ /var/www/cgi-bin/" > /etc/httpd/conf.d/cgi.conf
 
             # Create the stress test CGI script
-            cat <<EOF > /var/www/cgi-bin/stress.sh
+            cat <<'EOF' > /var/www/cgi-bin/stress.sh
             #!/bin/bash
             echo "Content-type: text/plain"
             echo ""
             # Run stress test in the background to not block the HTTP response
             nohup stress --cpu 1 --timeout 90 > /dev/null 2>&1 &
-            echo "CPU stress test initiated for 90 seconds on ${INSTANCE_ID}."
+            echo "CPU stress test initiated for 90 seconds on $INSTANCE_ID."
             EOF
 
             # Make the CGI script executable
@@ -352,6 +352,7 @@ Resources:
 
             # Restart Apache to apply all changes
             systemctl restart httpd
+
 
 
   WebServerASG:
