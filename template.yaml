@@ -366,6 +366,13 @@ Resources:
 
   WebServerASG:
     Type: AWS::AutoScaling::AutoScalingGroup
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: true
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 1
+        PauseTime: PT5M
     Properties:
       AutoScalingGroupName: !Sub ${AWS::StackName}-ASG
       MinSize: '1'
