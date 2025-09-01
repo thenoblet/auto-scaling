@@ -259,100 +259,108 @@ Resources:
   #  EC2 Launch Template and Auto Scaling Group
   #------------------------------------------------------------------#
   EC2LaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateName: !Sub ${AWS::StackName}-LaunchTemplate
-      LaunchTemplateData:
-        ImageId: !Ref LatestAmiId
-        InstanceType: t3.micro
-        SecurityGroupIds:
-          - !Ref WebServerSecurityGroup
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash -xe
-            # Update and install required packages
-            yum update -y
-            yum install -y httpd stress
+      Type: AWS::EC2::LaunchTemplate
+      Properties:
+        LaunchTemplateName: !Sub ${AWS::StackName}-LaunchTemplate
+        LaunchTemplateData:
+          ImageId: !Ref LatestAmiId
+          InstanceType: t3.micro
+          SecurityGroupIds:
+            - !Ref WebServerSecurityGroup
+          UserData:
+            Fn::Base64: !Sub |
+              #!/bin/bash -xe
+              # Update and install required packages
+              yum update -y
+              yum install -y httpd stress policycoreutils-python-utils
 
-            # Start and enable Apache web server
-            systemctl start httpd
-            systemctl enable httpd
+              # Start and enable Apache web server
+              systemctl start httpd
+              systemctl enable httpd
 
-            # Fetch instance metadata
-            INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-            PRIVATE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-            AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+              # Fetch instance metadata
+              INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+              PRIVATE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+              AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
 
-            # Create the main web page with a stress test button
-            cat <<EOF > /var/www/html/index.html
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <title>Auto Scaling Test</title>
-                <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f0f2f5; color: #333; }
-                    .container { background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; }
-                    p { background-color: #e9ecef; padding: 15px; border-radius: 5px; font-size: 1.2em; font-family: 'Courier New', Courier, monospace; }
-                    button { background-color: #dc3545; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 1em; cursor: pointer; transition: background-color 0.3s; }
-                    button:hover { background-color: #c82333; }
-                    #status { font-size: 0.9em; color: #666; margin-top: 20px; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>Hello from the Web Server!</h1>
-                    <p>Instance ID: <strong>$INSTANCE_ID</strong></p>
-                    <p>Private IP: <strong>$PRIVATE_IP</strong></p>
-                    <p>Availability Zone: <strong>$AVAILABILITY_ZONE</strong></p>
-                    <hr>
-                    <h3>Click to trigger a scale-out event:</h3>
-                    <button onclick="stressCpu()">Start CPU Stress Test</button>
-                    <p id="status"></p>
-                </div>
-                <script>
-                    function stressCpu() {
-                        const status = document.getElementById("status");
-                        status.innerText = "Initiating stress test for 90 seconds...";
-                        fetch('/cgi-bin/stress.sh')
-                            .then(response => {
-                                if (!response.ok) { throw new Error('Network response was not ok'); }
-                                return response.text();
-                            })
-                            .then(data => {
-                                console.log(data);
-                                status.innerText = "Stress test command sent! Monitor your ASG in the AWS Console.";
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                status.innerText = "Error sending stress test command.";
-                            });
-                    }
-                </script>
-            </body>
-            </html>
-            EOF
+              # Create the main web page with a stress test button
+              cat <<EOF > /var/www/html/index.html
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                  <meta charset="UTF-8">
+                  <title>Auto Scaling Test</title>
+                  <style>
+                      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f0f2f5; color: #333; }
+                      .container { background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; }
+                      p { background-color: #e9ecef; padding: 15px; border-radius: 5px; font-size: 1.2em; font-family: 'Courier New', Courier, monospace; }
+                      button { background-color: #dc3545; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 1em; cursor: pointer; transition: background-color 0.3s; }
+                      button:hover { background-color: #c82333; }
+                      #status { font-size: 0.9em; color: #666; margin-top: 20px; }
+                  </style>
+              </head>
+              <body>
+                  <div class="container">
+                      <h1>Hello from the Web Server!</h1>
+                      <p>Instance ID: <strong>${!INSTANCE_ID}</strong></p>
+                      <p>Private IP: <strong>${!PRIVATE_IP}</strong></p>
+                      <p>Availability Zone: <strong>${!AVAILABILITY_ZONE}</strong></p>
+                      <hr>
+                      <h3>Click to trigger a scale-out event:</h3>
+                      <button onclick="stressCpu()">Start CPU Stress Test</button>
+                      <p id="status"></p>
+                  </div>
+                  <script>
+                      function stressCpu() {
+                          const status = document.getElementById("status");
+                          status.innerText = "Initiating stress test for 90 seconds...";
+                          fetch('/cgi-bin/stress.sh')
+                              .then(response => {
+                                  if (!response.ok) { throw new Error('Network response was not ok'); }
+                                  return response.text();
+                              })
+                              .then(data => {
+                                  console.log(data);
+                                  status.innerText = "Stress test command sent! Monitor your ASG in the AWS Console.";
+                              })
+                              .catch(error => {
+                                  console.error('Error:', error);
+                                  status.innerText = "Error sending stress test command.";
+                              });
+                      }
+                  </script>
+              </body>
+              </html>
+              EOF
 
-            # Configure Apache for CGI scripts
-            mkdir -p /var/www/cgi-bin
-            chown apache:apache /var/www/cgi-bin
-            echo "ScriptAlias /cgi-bin/ /var/www/cgi-bin/" > /etc/httpd/conf.d/cgi.conf
+              # Configure Apache for CGI scripts
+              mkdir -p /var/www/cgi-bin
+              chown apache:apache /var/www/cgi-bin
+              echo "ScriptAlias /cgi-bin/ /var/www/cgi-bin/" > /etc/httpd/conf.d/cgi.conf
+              echo "<Directory \"/var/www/cgi-bin\">" >> /etc/httpd/conf.d/cgi.conf
+              echo "    AllowOverride None" >> /etc/httpd/conf.d/cgi.conf
+              echo "    Options +ExecCGI" >> /etc/httpd/conf.d/cgi.conf
+              echo "    Require all granted" >> /etc/httpd/conf.d/cgi.conf
+              echo "</Directory>" >> /etc/httpd/conf.d/cgi.conf
 
-            # Create the stress test CGI script
-            cat <<'EOF' > /var/www/cgi-bin/stress.sh
-            #!/bin/bash
-            echo "Content-type: text/plain"
-            echo ""
-            # Run stress test in the background to not block the HTTP response
-            nohup stress --cpu 1 --timeout 90 > /dev/null 2>&1 &
-            echo "CPU stress test initiated for 90 seconds on $INSTANCE_ID."
-            EOF
+              # Create the stress test CGI script
+              cat <<EOF > /var/www/cgi-bin/stress.sh
+              #!/bin/bash
+              echo "Content-type: text/plain"
+              echo ""
+              nohup stress --cpu 1 --timeout 90 > /dev/null 2>&1 &
+              echo "CPU stress test initiated for 90 seconds on ${!INSTANCE_ID}."
+              EOF
 
-            # Make the CGI script executable
-            chmod +x /var/www/cgi-bin/stress.sh
+              # Make the CGI script executable
+              chmod +x /var/www/cgi-bin/stress.sh
+              
+              # FIX for SELinux to allow CGI execution
+              semanage fcontext -a -t httpd_sys_script_exec_t "/var/www/cgi-bin(/.*)?"
+              restorecon -R -v /var/www/cgi-bin
 
-            # Restart Apache to apply all changes
-            systemctl restart httpd
+              # Restart Apache to apply all changes
+              systemctl restart httpd
 
 
 
