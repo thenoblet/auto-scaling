@@ -397,6 +397,8 @@ Resources:
       StepAdjustments:
         - MetricIntervalUpperBound: 20.0
           ScalingAdjustment: -1
+        - MetricIntervalLowerBound: 20.0
+          ScalingAdjustment: -2
       Cooldown: 60
 
 
