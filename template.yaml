@@ -391,7 +391,7 @@ Resources:
   WebServerScaleInPolicy:
     Type: AWS::AutoScaling::ScalingPolicy
     Properties:
-      AutoScalingGroupName: !Ref WebServerAutoScalingGroup
+      AutoScalingGroupName: !Ref WebServerASG
       PolicyType: StepScaling
       AdjustmentType: ChangeInCapacity
       StepAdjustments:
