@@ -220,6 +220,7 @@ Resources:
       Name: !Sub ${AWS::StackName}-ALB
       Scheme: internet-facing
       Subnets:
+        - !Ref PublicSubnetA
         - !Ref PublicSubnetB
       SecurityGroups:
         - !Ref ALBSecurityGroup
