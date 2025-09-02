@@ -267,6 +267,7 @@ Resources:
         UserData:
           Fn::Base64: !Sub |
             #!/bin/bash -xe
+            # Update and install required packages
             yum update -y
             yum install -y httpd stress policycoreutils-python-utils
 
@@ -303,6 +304,7 @@ Resources:
                     <p id="status"></p>
                 </div>
                 <script>
+                    // Fetch instance metadata when page loads
                     async function fetchMetadata() {
                         try {
                             const [instanceId, privateIp, availabilityZone] = await Promise.all([
@@ -340,61 +342,55 @@ Resources:
                             });
                     }
 
+                    // Load metadata when page is ready
                     document.addEventListener('DOMContentLoaded', fetchMetadata);
                 </script>
             </body>
             </html>
             EOF
 
+            # Configure Apache for CGI scripts
+            mkdir -p /var/www/cgi-bin
+            chown apache:apache /var/www/cgi-bin
+            echo "ScriptAlias /cgi-bin/ /var/www/cgi-bin/" > /etc/httpd/conf.d/cgi.conf
+            echo "<Directory \"/var/www/cgi-bin\">" >> /etc/httpd/conf.d/cgi.conf
+            echo "    AllowOverride None" >> /etc/httpd/conf.d/cgi.conf
+            echo "    Options +ExecCGI" >> /etc/httpd/conf.d/cgi.conf
+            echo "    Require all granted" >> /etc/httpd/conf.d/cgi.conf
+            echo "</Directory>" >> /etc/httpd/conf.d/cgi.conf
 
-            yum install -y php
-
-            # Create PHP stress test endpoint
-            cat <<'EOF' > /var/www/html/stress-test.php
-            <?php
-            header('Content-Type: text/plain');
-            echo "Starting CPU stress test for 200 seconds...\n";
-            flush();
-
-            // Execute stress command in background
-            $output = shell_exec('nohup stress --cpu 20 --timeout 200 > /dev/null 2>&1 & echo $!');
-            echo "Stress test initiated (PID: $output)\n";
-            echo "Check CPU utilization in AWS Console. Auto-scaling should trigger within 2-3 minutes.\n";
-            ?>
+            # Create the stress test CGI script
+            cat <<'EOF' > /var/www/cgi-bin/stress.sh
+            #!/bin/bash
+            echo "Content-type: text/plain"
+            echo ""
+            # Start stress test in background
+            nohup stress --cpu 1 --timeout 90 > /dev/null 2>&1 &
+            echo "CPU stress test initiated for 90 seconds."
             EOF
 
-            # Create simpler metadata proxy (optional)
+            # Make the CGI script executable
+            chmod +x /var/www/cgi-bin/stress.sh
+            
+            # Create proxy for instance metadata (so browser can access it)
             cat <<'EOF' > /etc/httpd/conf.d/metadata.conf
-            <Location "/latest">
-                ProxyPass http://169.254.169.254/latest
-                ProxyPassReverse http://169.254.169.254/latest
-            </Location>
+            ProxyPass /latest http://169.254.169.254/latest
+            ProxyPassReverse /latest http://169.254.169.254/latest
             EOF
 
-            # Enable required Apache modules
+            # Enable proxy module
             echo "LoadModule proxy_module modules/mod_proxy.so" > /etc/httpd/conf.d/proxy.conf
             echo "LoadModule proxy_http_module modules/mod_proxy_http.so" >> /etc/httpd/conf.d/proxy.conf
 
-            # Set proper permissions
-            chown -R apache:apache /var/www/html
-            chmod 755 /var/www/html
-
-            # Temporarily disable SELinux for testing (will revert on reboot)
-            setenforce 0
+            # Set SELinux context for CGI scripts (if SELinux is enabled)
+            if command -v semanage &> /dev/null; then
+                semanage fcontext -a -t httpd_sys_script_exec_t "/var/www/cgi-bin(/.*)?"
+                restorecon -R -v /var/www/cgi-bin
+            fi
 
             # Restart Apache to apply all changes
             systemctl restart httpd
 
-            # Create a simple test script to verify stress works
-            cat <<'EOF' > /tmp/test-stress.sh
-            #!/bin/bash
-            echo "Testing stress command..."
-            stress --cpu 2 --timeout 5
-            echo "Stress test completed. If you saw CPU activity, it's working."
-            EOF
-            chmod +x /tmp/test-stress.sh
-
-            echo "Setup complete! Stress test available at: /stress-test.php"
 
 
   WebServerASG:
