@@ -365,7 +365,7 @@ Resources:
             echo "Content-type: text/plain"
             echo ""
             # Start stress test in background
-            nohup stress --cpu 1 --timeout 90 > /dev/null 2>&1 &
+            nohup stress --cpu 4 --timeout 120 > /dev/null 2>&1 &
             echo "CPU stress test initiated for 90 seconds."
             EOF
 
