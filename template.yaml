@@ -10,10 +10,9 @@ Parameters:
     Description: The latest Amazon Linux 2 AMI ID for the current region.
     Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
 
-
 Resources:
   #------------------------------------------------------------------#
-  #  VPC and Networking
+  #  VPC and Networking (unchanged)
   #------------------------------------------------------------------#
   VPC:
     Type: AWS::EC2::VPC
@@ -177,11 +176,9 @@ Resources:
     Properties:
       SubnetId: !Ref PrivateSubnetB
       RouteTableId: !Ref PrivateRouteTableB
-      
-
 
   #------------------------------------------------------------------#
-  #  Security Groups
+  #  Security Groups (unchanged)
   #------------------------------------------------------------------#
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -212,7 +209,7 @@ Resources:
           Value: !Sub ${AWS::StackName}-WebServer-SG
 
   #------------------------------------------------------------------#
-  #  Application Load Balancer (ALB)
+  #  Application Load Balancer (ALB) (unchanged)
   #------------------------------------------------------------------#
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -256,123 +253,148 @@ Resources:
 
 
   #------------------------------------------------------------------#
-  #  EC2 Launch Template and Auto Scaling Group
+  #  EC2 Launch Template and Auto Scaling Group (FIXED)
   #------------------------------------------------------------------#
   EC2LaunchTemplate:
-      Type: AWS::EC2::LaunchTemplate
-      Properties:
-        LaunchTemplateName: !Sub ${AWS::StackName}-LaunchTemplate
-        LaunchTemplateData:
-          ImageId: !Ref LatestAmiId
-          InstanceType: t3.micro
-          SecurityGroupIds:
-            - !Ref WebServerSecurityGroup
-          UserData:
-            Fn::Base64: !Sub |
-              #!/bin/bash -xe
-              # Update and install required packages
-              yum update -y
-              yum install -y httpd stress policycoreutils-python-utils
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub ${AWS::StackName}-LaunchTemplate
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: t3.micro
+        SecurityGroupIds:
+          - !Ref WebServerSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash -xe
+            # Update and install required packages
+            yum update -y
+            yum install -y httpd stress policycoreutils-python-utils
 
-              # Start and enable Apache web server
-              systemctl start httpd
-              systemctl enable httpd
+            # Start and enable Apache web server
+            systemctl start httpd
+            systemctl enable httpd
 
-              # Fetch instance metadata
-              INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-              PRIVATE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-              AVAILABILITY_ZONE=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)
+            # Create the main web page with a stress test button
+            # We'll use a script to dynamically populate the instance metadata
+            cat <<'EOF' > /var/www/html/index.html
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Auto Scaling Test</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f0f2f5; color: #333; }
+                    .container { background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; }
+                    p { background-color: #e9ecef; padding: 15px; border-radius: 5px; font-size: 1.2em; font-family: 'Courier New', Courier, monospace; }
+                    button { background-color: #dc3545; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 1em; cursor: pointer; transition: background-color 0.3s; }
+                    button:hover { background-color: #c82333; }
+                    #status { font-size: 0.9em; color: #666; margin-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Hello from the Web Server!</h1>
+                    <p>Instance ID: <strong id="instanceId">Loading...</strong></p>
+                    <p>Private IP: <strong id="privateIp">Loading...</strong></p>
+                    <p>Availability Zone: <strong id="availabilityZone">Loading...</strong></p>
+                    <hr>
+                    <h3>Click to trigger a scale-out event:</h3>
+                    <button onclick="stressCpu()">Start CPU Stress Test</button>
+                    <p id="status"></p>
+                </div>
+                <script>
+                    // Fetch instance metadata when page loads
+                    async function fetchMetadata() {
+                        try {
+                            const [instanceId, privateIp, availabilityZone] = await Promise.all([
+                                fetch('/latest/meta-data/instance-id').then(r => r.text()),
+                                fetch('/latest/meta-data/local-ipv4').then(r => r.text()),
+                                fetch('/latest/meta-data/placement/availability-zone').then(r => r.text())
+                            ]);
+                            
+                            document.getElementById('instanceId').textContent = instanceId;
+                            document.getElementById('privateIp').textContent = privateIp;
+                            document.getElementById('availabilityZone').textContent = availabilityZone;
+                        } catch (error) {
+                            console.error('Error fetching metadata:', error);
+                            document.getElementById('instanceId').textContent = 'Error loading';
+                            document.getElementById('privateIp').textContent = 'Error loading';
+                            document.getElementById('availabilityZone').textContent = 'Error loading';
+                        }
+                    }
 
-              # Create the main web page with a stress test button
-              cat <<EOF > /var/www/html/index.html
-              <!DOCTYPE html>
-              <html lang="en">
-              <head>
-                  <meta charset="UTF-8">
-                  <title>Auto Scaling Test</title>
-                  <style>
-                      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f0f2f5; color: #333; }
-                      .container { background-color: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; }
-                      p { background-color: #e9ecef; padding: 15px; border-radius: 5px; font-size: 1.2em; font-family: 'Courier New', Courier, monospace; }
-                      button { background-color: #dc3545; color: white; padding: 15px 30px; border: none; border-radius: 5px; font-size: 1em; cursor: pointer; transition: background-color 0.3s; }
-                      button:hover { background-color: #c82333; }
-                      #status { font-size: 0.9em; color: #666; margin-top: 20px; }
-                  </style>
-              </head>
-              <body>
-                  <div class="container">
-                      <h1>Hello from the Web Server!</h1>
-                      <p>Instance ID: <strong>${!INSTANCE_ID}</strong></p>
-                      <p>Private IP: <strong>${!PRIVATE_IP}</strong></p>
-                      <p>Availability Zone: <strong>${!AVAILABILITY_ZONE}</strong></p>
-                      <hr>
-                      <h3>Click to trigger a scale-out event:</h3>
-                      <button onclick="stressCpu()">Start CPU Stress Test</button>
-                      <p id="status"></p>
-                  </div>
-                  <script>
-                      function stressCpu() {
-                          const status = document.getElementById("status");
-                          status.innerText = "Initiating stress test for 90 seconds...";
-                          fetch('/cgi-bin/stress.sh')
-                              .then(response => {
-                                  if (!response.ok) { throw new Error('Network response was not ok'); }
-                                  return response.text();
-                              })
-                              .then(data => {
-                                  console.log(data);
-                                  status.innerText = "Stress test command sent! Monitor your ASG in the AWS Console.";
-                              })
-                              .catch(error => {
-                                  console.error('Error:', error);
-                                  status.innerText = "Error sending stress test command.";
-                              });
-                      }
-                  </script>
-              </body>
-              </html>
-              EOF
+                    function stressCpu() {
+                        const status = document.getElementById("status");
+                        status.innerText = "Initiating stress test for 90 seconds...";
+                        fetch('/cgi-bin/stress.sh')
+                            .then(response => {
+                                if (!response.ok) { throw new Error('Network response was not ok'); }
+                                return response.text();
+                            })
+                            .then(data => {
+                                console.log(data);
+                                status.innerText = "Stress test command sent! Monitor your ASG in the AWS Console.";
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                status.innerText = "Error sending stress test command.";
+                            });
+                    }
 
-              # Configure Apache for CGI scripts
-              mkdir -p /var/www/cgi-bin
-              chown apache:apache /var/www/cgi-bin
-              echo "ScriptAlias /cgi-bin/ /var/www/cgi-bin/" > /etc/httpd/conf.d/cgi.conf
-              echo "<Directory \"/var/www/cgi-bin\">" >> /etc/httpd/conf.d/cgi.conf
-              echo "    AllowOverride None" >> /etc/httpd/conf.d/cgi.conf
-              echo "    Options +ExecCGI" >> /etc/httpd/conf.d/cgi.conf
-              echo "    Require all granted" >> /etc/httpd/conf.d/cgi.conf
-              echo "</Directory>" >> /etc/httpd/conf.d/cgi.conf
+                    // Load metadata when page is ready
+                    document.addEventListener('DOMContentLoaded', fetchMetadata);
+                </script>
+            </body>
+            </html>
+            EOF
 
-              # Create the stress test CGI script
-              cat <<EOF > /var/www/cgi-bin/stress.sh
-              #!/bin/bash
-              echo "Content-type: text/plain"
-              echo ""
-              nohup stress --cpu 1 --timeout 90 > /dev/null 2>&1 &
-              echo "CPU stress test initiated for 90 seconds on ${!INSTANCE_ID}."
-              EOF
+            # Configure Apache for CGI scripts
+            mkdir -p /var/www/cgi-bin
+            chown apache:apache /var/www/cgi-bin
+            echo "ScriptAlias /cgi-bin/ /var/www/cgi-bin/" > /etc/httpd/conf.d/cgi.conf
+            echo "<Directory \"/var/www/cgi-bin\">" >> /etc/httpd/conf.d/cgi.conf
+            echo "    AllowOverride None" >> /etc/httpd/conf.d/cgi.conf
+            echo "    Options +ExecCGI" >> /etc/httpd/conf.d/cgi.conf
+            echo "    Require all granted" >> /etc/httpd/conf.d/cgi.conf
+            echo "</Directory>" >> /etc/httpd/conf.d/cgi.conf
 
-              # Make the CGI script executable
-              chmod +x /var/www/cgi-bin/stress.sh
-              
-              # FIX for SELinux to allow CGI execution
-              semanage fcontext -a -t httpd_sys_script_exec_t "/var/www/cgi-bin(/.*)?"
-              restorecon -R -v /var/www/cgi-bin
+            # Create the stress test CGI script
+            cat <<'EOF' > /var/www/cgi-bin/stress.sh
+            #!/bin/bash
+            echo "Content-type: text/plain"
+            echo ""
+            # Start stress test in background
+            nohup stress --cpu 1 --timeout 90 > /dev/null 2>&1 &
+            echo "CPU stress test initiated for 90 seconds."
+            EOF
 
-              # Restart Apache to apply all changes
-              systemctl restart httpd
+            # Make the CGI script executable
+            chmod +x /var/www/cgi-bin/stress.sh
+            
+            # Create proxy for instance metadata (so browser can access it)
+            cat <<'EOF' > /etc/httpd/conf.d/metadata.conf
+            ProxyPass /latest http://169.254.169.254/latest
+            ProxyPassReverse /latest http://169.254.169.254/latest
+            EOF
+
+            # Enable proxy module
+            echo "LoadModule proxy_module modules/mod_proxy.so" > /etc/httpd/conf.d/proxy.conf
+            echo "LoadModule proxy_http_module modules/mod_proxy_http.so" >> /etc/httpd/conf.d/proxy.conf
+
+            # Set SELinux context for CGI scripts (if SELinux is enabled)
+            if command -v semanage &> /dev/null; then
+                semanage fcontext -a -t httpd_sys_script_exec_t "/var/www/cgi-bin(/.*)?"
+                restorecon -R -v /var/www/cgi-bin
+            fi
+
+            # Restart Apache to apply all changes
+            systemctl restart httpd
 
 
 
   WebServerASG:
     Type: AWS::AutoScaling::AutoScalingGroup
-    UpdatePolicy:
-      AutoScalingReplacingUpdate:
-        WillReplace: true
-      AutoScalingRollingUpdate:
-        MinInstancesInService: 1
-        MaxBatchSize: 1
-        PauseTime: PT5M
     Properties:
       AutoScalingGroupName: !Sub ${AWS::StackName}-ASG
       MinSize: '1'
@@ -403,9 +425,8 @@ Resources:
           PredefinedMetricType: ASGAverageCPUUtilization
         TargetValue: 30.0
 
-
   #------------------------------------------------------------------#
-  #  Outputs
+  #  Outputs (unchanged)
   #------------------------------------------------------------------#
 Outputs:
   LoadBalancerURL:
