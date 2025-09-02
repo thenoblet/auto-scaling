@@ -375,14 +375,14 @@ Resources:
             ProxyPassReverse /latest http://169.254.169.254/latest
             EOF
 
-            # Enable proxy module
-            echo "LoadModule proxy_module modules/mod_proxy.so" > /etc/httpd/conf.d/proxy.conf
-            echo "LoadModule proxy_http_module modules/mod_proxy_http.so" >> /etc/httpd/conf.d/proxy.conf
-
             # Set SELinux context for CGI scripts (if SELinux is enabled)
             if command -v semanage &> /dev/null; then
                 semanage fcontext -a -t httpd_sys_script_exec_t "/var/www/cgi-bin(/.*)?"
                 restorecon -R -v /var/www/cgi-bin
+            fi
+
+            if command -v setsebool &> /dev/null; then
+                setsebool -P httpd_execmem 1
             fi
 
             # Restart Apache to apply all changes
