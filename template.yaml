@@ -304,7 +304,6 @@ Resources:
                     <p id="status"></p>
                 </div>
                 <script>
-                    // Fetch instance metadata when page loads
                     async function fetchMetadata() {
                         try {
                             const [instanceId, privateIp, availabilityZone] = await Promise.all([
@@ -342,7 +341,6 @@ Resources:
                             });
                     }
 
-                    // Load metadata when page is ready
                     document.addEventListener('DOMContentLoaded', fetchMetadata);
                 </script>
             </body>
