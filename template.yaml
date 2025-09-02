@@ -12,7 +12,7 @@ Parameters:
 
 Resources:
   #------------------------------------------------------------------#
-  #  VPC and Networking (unchanged)
+  #  VPC and Networking
   #------------------------------------------------------------------#
   VPC:
     Type: AWS::EC2::VPC
@@ -178,7 +178,7 @@ Resources:
       RouteTableId: !Ref PrivateRouteTableB
 
   #------------------------------------------------------------------#
-  #  Security Groups (unchanged)
+  #  Security Groups
   #------------------------------------------------------------------#
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -209,7 +209,7 @@ Resources:
           Value: !Sub ${AWS::StackName}-WebServer-SG
 
   #------------------------------------------------------------------#
-  #  Application Load Balancer (ALB) (unchanged)
+  #  Application Load Balancer (ALB)
   #------------------------------------------------------------------#
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -253,7 +253,7 @@ Resources:
 
 
   #------------------------------------------------------------------#
-  #  EC2 Launch Template and Auto Scaling Group (FIXED)
+  #  EC2 Launch Template and Auto Scaling Group
   #------------------------------------------------------------------#
   EC2LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -424,7 +424,7 @@ Resources:
         TargetValue: 30.0
 
   #------------------------------------------------------------------#
-  #  Outputs (unchanged)
+  #  Outputs
   #------------------------------------------------------------------#
 Outputs:
   LoadBalancerURL:
